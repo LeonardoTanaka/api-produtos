@@ -13,6 +13,13 @@ class ProdutoSchema(BaseModel):
     nome: str
     preco: float
 
+
+# home
+@app.get("/")
+def home():
+    return {"status": "API online 🚀"}
+
+
 # criar produto no banco
 @app.post("/produto")
 def criar_produto(produto: ProdutoSchema):

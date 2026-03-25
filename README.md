@@ -15,3 +15,6 @@
 ## ▶️ Como rodar
 pip install -r requirements.txt
 uvicorn main:app --reload
+
+## 🌐 API online
+https://api-produtos-n4p6.onrender.com
