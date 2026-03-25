@@ -1,10 +1,11 @@
 import smtplib
+import os
 from email.message import EmailMessage
 
 def enviar_email(arquivo, destinatario):
     email = EmailMessage()
     email["Subject"] = "Relatório de Produtos"
-    email["From"] = "leonardo.tanaka07@gmail.com"
+    email["From"] = os.getenv("EMAIL_USER")
     email["To"] = destinatario
 
     email.set_content("Segue o relatório em anexo.")
@@ -14,9 +15,18 @@ def enviar_email(arquivo, destinatario):
         file_data = f.read()
         file_name = f.name
 
-    email.add_attachment(file_data, maintype="application", subtype="octet-stream", filename=file_name)
+    email.add_attachment(
+        file_data,
+        maintype="application",
+        subtype="octet-stream",
+        filename=file_name
+    )
 
-    # envio
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login("leonardo.tanaka07@gmail.com", "cbpg vdst gdry lljx")
+    # envio (porta 587 + TLS)
+    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        smtp.starttls()
+        smtp.login(
+            os.getenv("EMAIL_USER"),
+            os.getenv("EMAIL_PASS")
+        )
         smtp.send_message(email)
