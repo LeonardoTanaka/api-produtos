@@ -5,6 +5,9 @@ from models import Produto
 from excel import gerar_excel
 from fastapi.responses import FileResponse
 from email_service import enviar_email
+from scraping import buscar_produtos
+import pandas as pd
+
 
 app = FastAPI()
 
@@ -59,13 +62,37 @@ def exportar():
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
-@app.post("/exportar-email")
-def exportar_email(destinatario: str):
-    db = SessionLocal()
-    produtos = db.query(Produto).all()
+#@app.post("/exportar-email")
+#def exportar_email(destinatario: str):
+#    db = SessionLocal()
+#    produtos = db.query(Produto).all()
+#
+#    arquivo = gerar_excel(produtos)
 
-    arquivo = gerar_excel(produtos)
+#    enviar_email(arquivo, destinatario)
 
-    enviar_email(arquivo, destinatario)
+#    return {"mensagem": "Email enviado com sucesso!"}
 
-    return {"mensagem": "Email enviado com sucesso!"}
+
+@app.get("/buscar")
+def buscar(nome: str):
+    produtos = buscar_produtos(nome)
+
+    print(f"Produtos encontrados: {len(produtos)}")
+
+    if not produtos:
+        return {"erro": "Nenhum produto encontrado"}
+
+    # 🔥 ordenar do menor para o maior preço
+    produtos_ordenados = sorted(produtos, key=lambda x: x["preco"])
+
+    # gerar excel
+    arquivo = gerar_excel(produtos_ordenados)
+
+    print("Arquivo gerado:", arquivo)
+
+    return FileResponse(
+        path=arquivo,
+        filename="produtos.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
