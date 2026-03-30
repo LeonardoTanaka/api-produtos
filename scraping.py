@@ -1,99 +1,79 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import requests
 from bs4 import BeautifulSoup
-import time
+import re
+
+
+def eh_produto_principal(titulo, palavras_busca):
+    titulo = titulo.lower()
+
+    
+    palavras_bloqueadas = [
+        "capa", "case", "adesiv", "pelicul", "suporte",
+        "teclado", "mouse", "kit", "combo", "protetor",
+        "cabo", "carregador", "adaptador", "skin"
+    ]
+
+    if any(p in titulo for p in palavras_bloqueadas):
+        return False
+
+    # ✔ precisa conter pelo menos uma palavra da busca
+    if not any(p in titulo for p in palavras_busca):
+        return False
+
+    # ✔ precisa parecer produto real (tem número)
+    if not re.search(r"\d", titulo):
+        return False
+
+    return True
 
 
 def buscar_produtos(nome):
-    options = Options()
-
-    # 👉 deixar visível pra debug (depois pode comentar)
-    # options.add_argument("--headless=new")
-
-    options.add_argument("--start-maximized")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    )
-
-    driver = webdriver.Chrome(options=options)
-
     url = f"https://lista.mercadolivre.com.br/{nome}"
-    driver.get(url)
 
-    wait = WebDriverWait(driver, 10)
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    # 🔥 fechar cookies
-    try:
-        btn_cookie = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Aceitar')]"))
-        )
-        btn_cookie.click()
-        print("Cookies aceitos")
-    except:
-        print("Sem popup de cookies")
+    response = requests.get(url, headers=headers)
 
-    # 🔥 fechar CEP
-    try:
-        btn_cep = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Entendi')]"))
-        )
-        btn_cep.click()
-        print("Popup de CEP fechado")
-    except:
-        print("Sem popup de CEP")
-
-    # 🔥 esperar produtos carregarem
-    try:
-        wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "li.ui-search-layout__item"))
-        )
-    except:
-        print("Produtos não carregaram")
-        driver.quit()
+    if response.status_code != 200:
+        print("Erro ao acessar página")
         return []
 
-    # 🔥 scroll (garante carregamento completo)
-    for _ in range(3):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)
-
-    html = driver.page_source
-    driver.quit()
-
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(response.text, "html.parser")
 
     itens = soup.select("li.ui-search-layout__item")
 
     print(f"Produtos encontrados (cards): {len(itens)}")
 
     produtos = []
+    palavras_busca = nome.lower().split()
 
     for item in itens:
         try:
-            # 🔥 NOVO TÍTULO (baseado no seu HTML)
-            titulo_el = item.select_one("a.poly-component__title")
+            titulo_tag = item.select_one("h2, h3")
+            preco_tag = item.select_one(".andes-money-amount__fraction")
+            link_tag = item.select_one("a")
 
-            # 🔥 PREÇO
-            preco_el = item.select_one(".andes-money-amount__fraction")
-
-            if not titulo_el or not preco_el:
+            if not titulo_tag or not preco_tag or not link_tag:
                 continue
 
-            titulo = titulo_el.get_text(strip=True)
-            preco_texto = preco_el.get_text(strip=True)
+            titulo = titulo_tag.get_text().strip()
+            titulo_lower = titulo.lower()
 
-            preco = float(preco_texto.replace(".", "").replace(",", "."))
+            # 🔥 filtro inteligente
+            if not eh_produto_principal(titulo_lower, palavras_busca):
+                continue
+
+            preco = preco_tag.get_text().replace(".", "").replace(",", ".")
+            preco = float(preco)
+
+            link = link_tag["href"]
 
             produtos.append({
                 "nome": titulo,
-                "preco": preco
+                "preco": preco,
+                "link": link
             })
 
         except Exception as e:
@@ -101,6 +81,8 @@ def buscar_produtos(nome):
             continue
 
     print(f"Produtos válidos: {len(produtos)}")
-    print("Exemplo:", produtos[:3])
+
+    # ordena por menor preço
+    produtos = sorted(produtos, key=lambda x: x["preco"])
 
     return produtos

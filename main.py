@@ -78,21 +78,13 @@ def exportar():
 def buscar(nome: str):
     produtos = buscar_produtos(nome)
 
-    print(f"Produtos encontrados: {len(produtos)}")
-
     if not produtos:
         return {"erro": "Nenhum produto encontrado"}
 
-    # 🔥 ordenar do menor para o maior preço
-    produtos_ordenados = sorted(produtos, key=lambda x: x["preco"])
-
-    # gerar excel
-    arquivo = gerar_excel(produtos_ordenados)
-
-    print("Arquivo gerado:", arquivo)
+    arquivo = gerar_excel(produtos)
 
     return FileResponse(
         path=arquivo,
-        filename="produtos.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename=arquivo,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
